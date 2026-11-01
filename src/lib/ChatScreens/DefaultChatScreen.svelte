@@ -1,8 +1,8 @@
 <script lang="ts">
 
     import Suggestion from './Suggestion.svelte';
-    import { CameraIcon, DatabaseIcon, DicesIcon, GlobeIcon, ImagePlusIcon, LanguagesIcon, Laugh, MenuIcon, MicOffIcon, PackageIcon, Plus, RefreshCcwIcon, ReplyIcon, Send, StepForwardIcon, XIcon, BrainIcon, ArrowDown, SparkleIcon, CompassIcon, ChevronRightIcon } from "@lucide/svelte";
-    import { selectedCharID, PlaygroundStore, createSimpleCharacter, hypaV3ModalOpen, ScrollToMessageStore, additionalChatMenu, additionalFloatingActionButtons, easyPanelStore, chatPanelStore, onboardingModalStore } from "../../ts/stores.svelte";
+    import { CameraIcon, DatabaseIcon, DicesIcon, EyeIcon, GlobeIcon, ImagePlusIcon, LanguagesIcon, Laugh, MenuIcon, MicOffIcon, PackageIcon, Plus, RefreshCcwIcon, ReplyIcon, Send, StepForwardIcon, XIcon, BrainIcon, ArrowDown, SparkleIcon, CompassIcon, ChevronRightIcon } from "@lucide/svelte";
+    import { selectedCharID, PlaygroundStore, createSimpleCharacter, hypaV3ModalOpen, ScrollToMessageStore, additionalChatMenu, additionalFloatingActionButtons, easyPanelStore, chatPanelStore, onboardingModalStore, VisualManagerOpen } from "../../ts/stores.svelte";
     import { tick } from 'svelte';
     import Chat from "./Chat.svelte";
     import { type Message } from "../../ts/storage/database.svelte";
@@ -588,6 +588,12 @@
                     class="{DBState.db.fixedChatTextarea ? 'sticky pt-2 pb-2 right-0 bottom-0 bg-bgcolor' : 'mt-2 mb-2'} flex items-stretch w-full"
                     style="{DBState.db.fixedChatTextarea ? 'z-index:29;' : ''}"
             >
+                {#if currentCharacter && currentCharacter.type !== 'group' && currentCharacter.chaId !== '§playground'}
+                    <button class="ml-2 flex shrink-0 items-center gap-1 rounded-md border border-darkborderc bg-darkbutton px-3 text-sm text-textcolor hover:bg-selected" aria-label={$VisualManagerOpen ? 'Close Visual Manager' : 'Open Visual Manager'} aria-expanded={$VisualManagerOpen} aria-controls="visual-manager-panel" onclick={() => VisualManagerOpen.update(open => !open)}>
+                        <EyeIcon size={16} />
+                        <span>Visuals</span>
+                    </button>
+                {/if}
                 {#if DBState.db.useChatSticker && currentCharacter.type !== 'group'}
                     <div onclick={()=>{toggleStickers = !toggleStickers}}
                          class={"ml-4 bg-textcolor2 flex justify-center items-center  w-12 h-12 rounded-md hover:bg-blue-500 transition-colors "+(toggleStickers ? 'text-green-500':'text-textcolor')}>

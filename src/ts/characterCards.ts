@@ -21,6 +21,7 @@ import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { AccountStorage } from "./storage/accountStorage"
 import { filterBlockedRealmCards, isRealmCreatorBlocked } from "./realmBlocking"
 import { normalizeOnboarding } from "./onboarding"
+import { updateInlayScreen } from "./process/inlayScreen"
 
 
 const EXTERNAL_HUB_URL = 'https://sv.risuai.xyz';
@@ -668,7 +669,7 @@ function convertOffSpecCards(charaData:OldTavernChar|CharacterCardV2Risu, imgp:s
         loreExt = a.loreExt
     }
 
-    return {
+    const char:character = {
         name: data.name ?? 'unknown name',
         firstMessage: data.first_mes ?? 'unknown first message',
         desc:  data.description ?? '',
@@ -684,7 +685,8 @@ function convertOffSpecCards(charaData:OldTavernChar|CharacterCardV2Risu, imgp:s
         emotionImages: [],
         bias: [],
         globalLore: lorebook,
-        viewScreen: 'none',
+        viewScreen: 'imggen',
+        inlayViewScreen: true,
         chaId: uuidv4(),
         sdData: defaultSdDataFunc(),
         utilityBot: false,
@@ -708,6 +710,7 @@ function convertOffSpecCards(charaData:OldTavernChar|CharacterCardV2Risu, imgp:s
         chatFolders: []
         
     }
+    return updateInlayScreen(char)
 }
 
 export async function exportChar(charaID:number):Promise<string> {
@@ -778,7 +781,7 @@ async function importCharacterCardSpec<T extends boolean = false>(card:Character
     const risuext = safeStructuredClone(data.extensions.risuai)
     let emotions:[string, string][] = []
     let bias:[string, number][] = []
-    let viewScreen: "none" | "emotion" | "imggen" = 'none'
+    let viewScreen: "none" | "emotion" | "imggen" = 'imggen'
     let customScripts:customscript[] = []
     let utilityBot = false
     let sdData = defaultSdDataFunc()
@@ -1046,7 +1049,7 @@ async function importCharacterCardSpec<T extends boolean = false>(card:Character
         extentions: ext ?? {},
         largePortrait: data?.extensions?.risuai?.largePortrait ?? (!data?.extensions?.risuai),
         lorePlus: data?.extensions?.risuai?.lorePlus ?? false,
-        inlayViewScreen: data?.extensions?.risuai?.inlayViewScreen ?? false,
+        inlayViewScreen: data?.extensions?.risuai?.inlayViewScreen ?? true,
         newGenData: data?.extensions?.risuai?.newGenData ?? undefined,
         vits: vits,
         ttsMode: vits ? 'vits' : 'normal',
@@ -1072,6 +1075,8 @@ async function importCharacterCardSpec<T extends boolean = false>(card:Character
         char.creation_date = card.data.creation_date ?? 0
         char.modification_date = card.data.modification_date ?? 0
     }
+
+    char = updateInlayScreen(char)
 
     if(returnValue){
         return char as any

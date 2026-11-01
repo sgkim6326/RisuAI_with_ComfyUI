@@ -23,6 +23,7 @@ import { getInlayAsset } from "./files/inlays";
 import { getGenerationModelString } from "./models/modelString";
 import { connectionOpen, peerRevertChat, peerSafeCheck, peerSync } from "../sync/multiuser";
 import { runInlayScreen } from "./inlayScreen";
+import { analyzeVisualResponse } from "./visualManager";
 import { addRerolls } from "./prereroll";
 import { runImageEmbedding } from "./transformers";
 import { hanuraiMemory } from "./memory/hanuraiMemory";
@@ -1772,7 +1773,8 @@ export async function sendChat(chatProcessIndex = -1,arg:{
         const inlayMessageIndex = findMessageIndexByChatId(currentChat, outputMessageId)
         const outputMessage = currentChat.message[inlayMessageIndex]
         if(outputMessage){
-            const inlayr = runInlayScreen(currentChar, outputMessage.data)
+            const visualUpdate = analyzeVisualResponse(currentChar, currentChat)
+            const inlayr = runInlayScreen(currentChar, outputMessage.data, { chat:currentChat, messageId:outputMessageId, visualUpdate })
             outputMessage.data = inlayr.text
             DBState.db.characters[selectedChar].chats[selectedChat] = currentChat
             if(inlayr.promise){
@@ -1813,8 +1815,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                 result2.data = trimUntilPunctuation(result2.data)
             }
             result = result2.data
-            const inlayResult = runInlayScreen(currentChar, result)
-            result = inlayResult.text
             emoChanged = result2.emoChanged
             if(i === 0 && arg.continue){
                 DBState.db.characters[selectedChar].chats[selectedChat].message[msgIndex] = {
@@ -1826,12 +1826,17 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                     promptInfo,
                     chatId: generationId,
                 }       
+                const currentChat = DBState.db.characters[selectedChar].chats[selectedChat]
+                const visualUpdate = analyzeVisualResponse(currentChar, currentChat)
+                const inlayResult = runInlayScreen(currentChar, result, { chat:currentChat, messageId:generationId, visualUpdate })
+                result = inlayResult.text
+                currentChat.message[msgIndex].data = result
                 if(inlayResult.promise){
                     const p = await inlayResult.promise
-                    DBState.db.characters[selectedChar].chats[selectedChat].message[msgIndex].data = p
+                    currentChat.message[msgIndex].data = p
                 }
                 outputMessageIndex = msgIndex
-                outputMessageId = DBState.db.characters[selectedChar].chats[selectedChat].message[msgIndex]?.chatId
+                outputMessageId = currentChat.message[msgIndex]?.chatId
             }
             else if(i===0){
                 DBState.db.characters[selectedChar].chats[selectedChat].message.push({
@@ -1844,13 +1849,18 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                     chatId: generationId,
                 })
                 const ind = DBState.db.characters[selectedChar].chats[selectedChat].message.length - 1
+                const currentChat = DBState.db.characters[selectedChar].chats[selectedChat]
+                const visualUpdate = analyzeVisualResponse(currentChar, currentChat)
+                const inlayResult = runInlayScreen(currentChar, result, { chat:currentChat, messageId:generationId, visualUpdate })
+                result = inlayResult.text
+                currentChat.message[ind].data = result
                 if(inlayResult.promise){
                     const p = await inlayResult.promise
-                    DBState.db.characters[selectedChar].chats[selectedChat].message[ind].data = p
+                    currentChat.message[ind].data = p
                 }
                 mrerolls.push(result)
                 outputMessageIndex = ind
-                outputMessageId = DBState.db.characters[selectedChar].chats[selectedChat].message[ind]?.chatId
+                outputMessageId = currentChat.message[ind]?.chatId
             }
             else{
                 mrerolls.push(result)

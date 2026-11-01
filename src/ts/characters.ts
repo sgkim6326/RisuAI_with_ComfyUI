@@ -665,7 +665,7 @@ export function updateLorebooks(book:loreBook[]){
 }
 
 export function createBlankChar():character{
-    return {
+    const char:character = {
         name: '',
         firstMessage: '',
         desc: '',
@@ -680,7 +680,8 @@ export function createBlankChar():character{
         chatPage: 0,
         emotionImages: [],
         bias: [],
-        viewScreen: 'none',
+        viewScreen: 'imggen',
+        inlayViewScreen: true,
         globalLore: [],
         chaId: uuidv4(),
         type: 'character',
@@ -716,6 +717,7 @@ export function createBlankChar():character{
         }],
         additionalText: ''
     }
+    return updateInlayScreen(char)
 }
 
 

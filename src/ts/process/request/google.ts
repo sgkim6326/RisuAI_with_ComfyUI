@@ -338,7 +338,8 @@ export async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):
             'reasoning_effort': "thinkingConfig.thinkingLevel"
         }, arg.mode, {
             ignoreTopKIfZero: true,
-            modelId: arg.modelInfo.id
+            modelId: arg.modelInfo.id,
+            disableThinking:arg.disableThinking
         }),
         safetySettings: uncensoredCatagory,
         systemInstruction: {
@@ -368,7 +369,7 @@ export async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):
         if (generationConfig.thinkingBudget !== undefined) {
             generationConfig.thinkingConfig = {
                 "thinkingBudget": generationConfig.thinkingBudget,
-                "includeThoughts": true,
+                "includeThoughts": !arg.disableThinking,
             }
             delete generationConfig.thinkingBudget
         } else if (generationConfig.thinkingConfig) {
@@ -377,7 +378,7 @@ export async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):
                 && arg.modelInfo.flags.includes(LLMFlags.geminiThinkingNoMinimal)) {
                 generationConfig.thinkingConfig.thinkingLevel = 'low'
             }
-            generationConfig.thinkingConfig.includeThoughts = true
+            generationConfig.thinkingConfig.includeThoughts = !arg.disableThinking
         }
     }
 

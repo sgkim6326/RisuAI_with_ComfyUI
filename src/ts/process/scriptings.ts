@@ -9,6 +9,7 @@ import { alertSelect, alertError, alertInput, alertNormal, alertConfirm } from "
 import { HypaProcesser } from "./memory/hypamemory";
 import { generateAIImage, type ImageGenerationOptions } from "./stableDiff";
 import { writeInlayImage, getInlayAsset } from "./files/inlays";
+import { recordVisualImageGenerated } from "./visualManager";
 import type { OpenAIChat, MultiModal } from "./index.svelte";
 import { requestChatData, type StreamResponseChunk } from "./request/request";
 import { v4 } from "uuid";
@@ -398,13 +399,23 @@ export async function runScripted(code:string, arg:{
                     return 'Error: Image orientation must be landscape or portrait, received ' + orientation
                 }
 
-                const gen = await generateAIImage(value, char as character, negValue, 'inlay', options)
+                let finalPrompt = value
+                const gen = await generateAIImage(value, char as character, negValue, 'inlay', {
+                    ...options,
+                    onPromptPrepared:prompt => {
+                        finalPrompt = prompt
+                        options?.onPromptPrepared?.(prompt)
+                    }
+                })
                 if(!gen){
                     return 'Error: Image generation failed'
                 }
                 const imgHTML = new Image()
                 imgHTML.src = gen
                 const inlay = await writeInlayImage(imgHTML)
+                if(char.type === 'character' && chat) {
+                    recordVisualImageGenerated(char, chat, inlay, finalPrompt, chat.message.at(-1)?.chatId)
+                }
                 return `{{inlay::${inlay}}}`
             })
 
@@ -1461,10 +1472,10 @@ export async function runLuaEditTrigger<T extends string|OpenAIChat[]>(char:char
     try {
         let data = content
 
-        const triggers = char.type === 'group' ? (getModuleTriggers()) : (char.triggerscript.map((v) => {
-            v.lowLevelAccess = false
-            return v
-        }).concat(getModuleTriggers()))
+        const triggers = char.type === 'group' ? (getModuleTriggers()) : (char.triggerscript.map<triggerscript>((v) => ({
+            ...v,
+            lowLevelAccess: false
+        })).concat(getModuleTriggers()))
     
         for(let trigger of triggers){
             if(trigger?.effect?.[0]?.type === 'triggerlua'){

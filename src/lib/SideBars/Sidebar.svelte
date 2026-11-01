@@ -16,7 +16,7 @@
 
 
   } from "../../ts/stores.svelte";
-    import { setDatabase, type folder } from "../../ts/storage/database.svelte";
+    import { setDatabase, type character, type folder } from "../../ts/storage/database.svelte";
     import { DBState } from 'src/ts/stores.svelte';
     import BarIcon from "./BarIcon.svelte";
     import SidebarIndicator from "./SidebarIndicator.svelte";
@@ -959,7 +959,7 @@
         <button onclick={() => {
           devTool = false
           botMakerMode.set(true)
-        }} class="grow rounded-br-md" class:text-textcolor2={!$botMakerMode || devTool}>{language.character}</button>
+        }} class="grow border-r border-r-selected" class:text-textcolor2={!$botMakerMode || devTool}>{language.character}</button>
         {#if DBState.db.enableDevTools}
           <button onclick={() => {
             devTool = true

@@ -347,7 +347,8 @@ async function buildResponsesBody(arg:RequestDataArgumentExtended):Promise<Recor
         reasoning_effort: 'reasoning.effort',
         verbosity: 'text.verbosity'
     }, arg.mode, {
-        modelId: arg.modelInfo.id
+        modelId: arg.modelInfo.id,
+        disableThinking:arg.disableThinking
     })
 
     if(body.tools.length === 0){

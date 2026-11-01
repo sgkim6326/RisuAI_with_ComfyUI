@@ -46,6 +46,7 @@ dist.zip
 /scripts/
 .env
 /server/node/ssl/certificate
+/certs/
 
 
 # Due to Cargo.lock makes the project build fail, we ignore it

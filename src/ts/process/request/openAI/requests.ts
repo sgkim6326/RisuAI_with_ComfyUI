@@ -451,12 +451,15 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
         {},
         arg.mode,
         {
-            modelId: arg.modelInfo.id
+            modelId: arg.modelInfo.id,
+            disableThinking:arg.disableThinking
         }
     )
 
     if(arg.modelInfo.flags.includes(LLMFlags.deepSeekThinkingToggle)){
-        if(db.deepseekThinkingType === 'enabled'){
+        if(arg.disableThinking){
+            body.thinking = { type:'disabled' }
+        }else if(db.deepseekThinkingType === 'enabled'){
             body.thinking = {
                 type: 'enabled',
                 reasoning_effort: db.deepseekReasoningEffort ?? 'high'

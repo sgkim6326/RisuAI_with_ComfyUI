@@ -544,8 +544,10 @@ export function setDatabase(data:Database){
         posInputName: 'text',
         negNodeID: '',
         negInputName: 'text',
-        timeout: 30
+        timeout: 30,
+        apiToken: ''
     }
+    data.comfyConfig.apiToken ??= ''
     data.hideApiKey ??= true
     data.unformatQuotes ??= false
     data.ttsAutoSpeech ??= false
@@ -1353,6 +1355,160 @@ export interface loreBook{
     folder?:string
 }
 
+export interface VisualClothingPreset{
+    name:string
+    description:string
+}
+
+export interface VisualCharacterProfile{
+    id:string
+    name:string
+    aliases:string[]
+    source:'asset'|'memory'
+    style:{
+        medium:string
+        artStyle:string
+        lineArt:string
+        shading:string
+        colorPalette:string
+        additional:string
+    }
+    face:{shape:string; features:string}
+    eye:{color:string; shape:string; details:string}
+    hair:{color:string; length:string; style:string; details:string}
+    body:{build:string; skin:string; proportions:string; distinctiveFeatures:string}
+    clothing:{
+        presets:Record<string, VisualClothingPreset>
+        defaultPreset:string
+    }
+    assetUri?:string
+    assetName?:string
+    assetKind?:'portrait'|'charx'|'additional'|'emotion'|'linked'
+    assetContentHash?:string
+    englishCache?:{
+        fingerprint:string
+        fields:Record<string,string>
+    }
+    visionAnalysisStatus?:'complete'|'unavailable'|'failed'
+    visionModel?:string
+    visionFailure?:string
+    initialImagePromptFingerprint?:string
+    initialImageReferenceId?:string
+    initialImageContentHash?:string
+    initialImageVisionModel?:string
+    initialImageVisionStatus?:'pending'|'complete'|'unavailable'|'failed'
+    initialImageVisionFailure?:string
+    pinned?:boolean
+    currentScene?:boolean
+    importance?:number
+    mentionCount?:number
+    lastSeenMessage?:number
+    manualFields?:string[]
+}
+
+export interface VisualLocationProfile{
+    id:string
+    name:string
+    aliases:string[]
+    source:'lorebook'|'memory'
+    structure:string
+    interior:string
+    lighting:string
+    colorPalette:string
+    atmosphere:string
+    pinned?:boolean
+    currentScene?:boolean
+    importance?:number
+    mentionCount?:number
+    lastSeenMessage?:number
+    manualFields?:string[]
+    classification?:'place'|'person'|'event'|'rule'|'worldbuilding'|'unknown'
+    sourceFingerprint?:string
+}
+
+export type VisualLoreClassification = 'place'|'person'|'event'|'rule'|'worldbuilding'|'unknown'
+
+export interface VisualLoreClassificationEntry{
+    fingerprint:string
+    classification:VisualLoreClassification
+    attempted?:boolean
+    profile?:Pick<VisualLocationProfile, 'structure'|'interior'|'lighting'|'colorPalette'|'atmosphere'>
+}
+
+export interface VisualStateChange{
+    characterId:string
+    messageId:string
+    field:string
+    value:string
+    reverted?:boolean
+}
+
+export interface VisualImageReference{
+    id:string
+    generatedAt:number
+    messageId?:string
+    prompt:string
+    characterIds:string[]
+    locationIds:string[]
+    profileVersions:Record<string, string>
+    sceneSpec?:string
+}
+
+export interface VisualAnalysisMetrics{
+    elapsedMs:number
+    assetMetadataCount:number
+    imageBytesRead:number
+    visionCalls:number
+    llmCalls:number
+    cacheHits:number
+}
+
+export interface VisualManagerSettings{
+    enabled:boolean
+    autoAnalyze:boolean
+    maxCharacters:number
+    maxLocations:number
+    recentMessages:number
+    debug:boolean
+}
+
+export interface ChatVisualMemory{
+    characters:VisualCharacterProfile[]
+    locations:VisualLocationProfile[]
+    currentCharacterIds:string[]
+    currentLocationIds:string[]
+    currentOutfits:Record<string,string>
+    baseOutfits?:Record<string,string>
+    appearanceStates?:Record<string,Record<string,string>>
+    stateChanges?:VisualStateChange[]
+    recentImages?:VisualImageReference[]
+    lastAnalysisMetrics?:VisualAnalysisMetrics
+    lastAnalysisSource?:string
+    lastRelatedMessageIds?:string[]
+    lastAppliedFields?:string[]
+    lastConflictingFields?:string[]
+    lastSavedAt?:number
+    lastGeneratedImageId?:string
+    lastAnalyzedFingerprint?:string
+    lastAnalyzedMessageCount?:number
+    lastFailedAnalysisFingerprint?:string
+    lastFailedAnalysisModel?:string
+    lastAnalysisResult?:string
+    lastAnalysisModel?:string
+    lastAnalysisProvider?:string
+    lastVisualTranslationModel?:string
+    lastVisualTranslationProvider?:string
+    lastVisualTranslationFailureKind?:'provider-content-block'|'visual-language-conversion'
+    lastAnalysisFailureKind?:'provider-content-block'|'request-failure'|'json-validation'|'visual-language-conversion'
+    lastDebugPrompt?:string
+    lastDebugSceneSpec?:string
+    lastDebugStatus?:string[]
+    englishPromptCache?:{
+        fingerprint:string
+        prompt:string
+    }
+}
+
 export interface character{
     type?:"character"
     name:string
@@ -1494,6 +1650,12 @@ export interface character{
         name: string
         ext: string
     }>
+    visualAssetCatalogRevision?:number
+    visualManagerSettings?:VisualManagerSettings
+    visualAssetProfiles?:VisualCharacterProfile[]
+    visualAssetLocations?:VisualLocationProfile[]
+    visualLoreClassificationCache?:Record<string,VisualLoreClassificationEntry>
+    visualManagerInstructionBackup?:string
     defaultVariables?:string
     onboarding?:CharacterOnboarding
     lowLevelAccess?:boolean
@@ -1512,6 +1674,9 @@ export interface character{
     customModuleToggle?:string
 }
 
+export function invalidateVisualAssetCatalog(char:character):void {
+    char.visualAssetCatalogRevision = (char.visualAssetCatalogRevision ?? 0) + 1
+}
 
 export interface loreSettings{
     tokenBudget: number
@@ -1823,7 +1988,8 @@ interface ComfyConfig{
     posInputName:string,
     negNodeID: string,
     negInputName:string,
-    timeout: number
+    timeout: number,
+    apiToken: string
 }
 
 export type FormatingOrderItem = 'main'|'jailbreak'|'chats'|'lorebook'|'globalNote'|'authorNote'|'lastChat'|'description'|'postEverything'|'personaPrompt'
@@ -1853,6 +2019,7 @@ export interface Chat{
     useLocallySetGlobalVariables?: boolean
     GLGlobalVariables?: { [key: string]: string }
     onboardingDone?: boolean
+    visualMemory?:ChatVisualMemory
 }
 
 export interface OnboardingOption{

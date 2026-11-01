@@ -358,11 +358,12 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
     }, arg.modelInfo.parameters, {
         'thinking_tokens': 'thinking.budget_tokens'
     }, arg.mode, {
-        modelId: arg.modelInfo.id
+        modelId: arg.modelInfo.id,
+        disableThinking:arg.disableThinking
     })
 
     // Handle thinking mode: off, adaptive, or budget
-    const thinkingType = resolveClaudeThinkingType(arg.modelInfo.flags, db.thinkingType)
+    const thinkingType = arg.disableThinking ? 'off' : resolveClaudeThinkingType(arg.modelInfo.flags, db.thinkingType)
 
     if(thinkingType === 'off'){
         if(arg.modelInfo.flags.includes(LLMFlags.claudeThinkingOnByDefault)){

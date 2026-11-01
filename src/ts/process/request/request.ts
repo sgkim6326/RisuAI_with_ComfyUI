@@ -51,6 +51,7 @@ interface requestDataArgument{
     tools?: MCPTool[]
     rememberToolUsage?: boolean
     blockPlugins?:boolean
+    disableThinking?:boolean
 }
 
 export interface RequestDataArgumentExtended extends requestDataArgument{
@@ -1121,7 +1122,7 @@ async function requestOllama(arg:RequestDataArgumentExtended):Promise<requestDat
     const isCloud = arg.aiModel === 'ollama-cloud'
     const requestFormat = isCloud ? db.ollamaRequestFormat : LLMFormat.Ollama
     const ollamaModel = isCloud ? db.ollamaCloudModel : db.ollamaModel
-    const ollamaThinkMode = getOllamaThinkMode(db.ollamaThinkingMode)
+    const ollamaThinkMode = arg.disableThinking ? false : getOllamaThinkMode(db.ollamaThinkingMode)
 
     if(isCloud && requestFormat === LLMFormat.OpenAICompatible){
         arg.customURL = 'https://ollama.com/v1/chat/completions'

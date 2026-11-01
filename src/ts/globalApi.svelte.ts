@@ -668,17 +668,37 @@ export function addFetchLog(arg: {
     status?: number
 }): number {
     fetchLog.unshift({
-        body: typeof (arg.body) === 'string' ? arg.body : JSON.stringify(arg.body, null, 2),
-        header: JSON.stringify(arg.headers ?? {}, null, 2),
-        response: typeof (arg.response) === 'string' ? arg.response : JSON.stringify(arg.response, null, 2),
+        body: sanitizeFetchLogValue(arg.body, arg.headers),
+        header: JSON.stringify(sanitizeFetchLogHeaders(arg.headers), null, 2),
+        response: sanitizeFetchLogValue(arg.response, arg.headers),
         responseType: arg.resType ?? 'json',
         success: arg.success,
         date: (new Date()).toLocaleTimeString(),
-        url: arg.url,
+        url: sanitizeFetchLogValue(arg.url, arg.headers),
         chatId: arg.chatId,
         status: arg.status
     });
     return 0;
+}
+
+function sanitizeFetchLogHeaders(headers?: { [key: string]: string }) {
+    return Object.fromEntries(
+        Object.entries(headers ?? {}).map(([key, value]) => [
+            key,
+            key.toLowerCase() === 'authorization' && value ? '[REDACTED]' : value
+        ])
+    );
+}
+
+function sanitizeFetchLogValue(value: any, headers?: { [key: string]: string }): string {
+    const serialized = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+    let sanitized = serialized ?? String(value)
+    for (const [key, secret] of Object.entries(headers ?? {})) {
+        if (key.toLowerCase() === 'authorization' && secret) {
+            sanitized = sanitized.replaceAll(secret, '[REDACTED]')
+        }
+    }
+    return sanitized
 }
 
 /**
@@ -744,7 +764,7 @@ export async function globalFetch(url: string, arg: GlobalFetchArgs = {}): Promi
         }
 
     } catch (error) {
-        console.error(error);
+        console.error(sanitizeFetchLogValue(`${error}`, arg.headers));
         return { ok: false, data: `${error}`, headers: {}, status: 400 };
     }
 }
@@ -760,24 +780,24 @@ export async function globalFetch(url: string, arg: GlobalFetchArgs = {}): Promi
 function addFetchLogInGlobalFetch(response: any, success: boolean, url: string, arg: GlobalFetchArgs, status?: number) {
     try {
         fetchLog.unshift({
-            body: JSON.stringify(arg.body, null, 2),
-            header: JSON.stringify(arg.headers ?? {}, null, 2),
-            response: JSON.stringify(response, null, 2),
+            body: sanitizeFetchLogValue(arg.body, arg.headers),
+            header: JSON.stringify(sanitizeFetchLogHeaders(arg.headers), null, 2),
+            response: sanitizeFetchLogValue(response, arg.headers),
             success: success,
             date: (new Date()).toLocaleTimeString(),
-            url: url,
+            url: sanitizeFetchLogValue(url, arg.headers),
             chatId: arg.chatId,
             status: status
         })
     }
     catch {
         fetchLog.unshift({
-            body: JSON.stringify(arg.body, null, 2),
-            header: JSON.stringify(arg.headers ?? {}, null, 2),
-            response: `${response}`,
+            body: sanitizeFetchLogValue(arg.body, arg.headers),
+            header: JSON.stringify(sanitizeFetchLogHeaders(arg.headers), null, 2),
+            response: sanitizeFetchLogValue(`${response}`, arg.headers),
             success: success,
             date: (new Date()).toLocaleTimeString(),
-            url: url,
+            url: sanitizeFetchLogValue(url, arg.headers),
             chatId: arg.chatId,
             status: status
         })
@@ -1776,7 +1796,9 @@ export async function fetchNative(url: string, arg: {
     if (useLocalNetworkRoute && !isTauri && !isNodeServer) {
         throw new Error(webLocalNetworkBlockedMessage)
     }
-    let throughProxy = (!isTauri) && (!isNodeServer) && (!db.usePlainFetch)
+    let throughProxy = (!isTauri) && (!db.usePlainFetch) && (
+        !isNodeServer || (arg.interceptor === 'openai_streaming' && !window.userScriptFetch)
+    )
     if (useLocalNetworkRoute) {
         if (isNodeServer) {
             throughProxy = true

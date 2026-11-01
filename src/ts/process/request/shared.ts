@@ -142,6 +142,7 @@ export function applyParameters(
     arg: {
         ignoreTopKIfZero?: boolean
         modelId:string
+        disableThinking?:boolean
     },
 ): Record<string, any> {
     const db = getDatabase()
@@ -227,7 +228,7 @@ export function applyParameters(
                     break
                 }
                 case 'thinking_tokens': {
-                    value = sepParams.thinking_tokens
+                    value = arg.disableThinking ? 0 : sepParams.thinking_tokens
                     break
                 }
                 case 'frequency_penalty': {
@@ -246,7 +247,7 @@ export function applyParameters(
                 }
                 case 'reasoning_effort': {
                     value = getEffort(
-                        sepParams.reasoning_effort,
+                        arg.disableThinking ? -1 : sepParams.reasoning_effort,
                         reasoningDisabledEffort,
                         supportsXHighReasoning,
                         reasoningMinEffort
@@ -308,7 +309,7 @@ export function applyParameters(
             }
             case 'reasoning_effort': {
                 value = getEffort(
-                    db.reasoningEffort,
+                    arg.disableThinking ? -1 : db.reasoningEffort,
                     reasoningDisabledEffort,
                     supportsXHighReasoning,
                     reasoningMinEffort
@@ -328,7 +329,7 @@ export function applyParameters(
                 break
             }
             case 'thinking_tokens': {
-                value = db.thinkingTokens
+                value = arg.disableThinking ? 0 : db.thinkingTokens
                 break
             }
         }

@@ -2,12 +2,14 @@ import { get } from "svelte/store"
 import { getDatabase, type character } from "../storage/database.svelte"
 import { requestChatData } from "./request/request"
 import { alertError } from "../alert"
-import { fetchNative, globalFetch, readImage } from "../globalApi.svelte"
+import { globalFetch, readImage } from "../globalApi.svelte"
 import { CharEmotion } from "../stores.svelte"
 import type { OpenAIChat } from "./index.svelte"
 import { processZip } from "./processzip"
 import { keiServerURL } from "../kei/kei"
 import random from "lodash/random"
+import { prepareVisualImagePrompt, recordVisualImageDecision, type VisualPromptContext } from "./visualManager"
+import { composeImagePromptInstructions } from "./visualPromptInstructions"
 
 export async function stableDiff(currentChar:character,prompt:string){
     let db = getDatabase()
@@ -19,12 +21,15 @@ export async function stableDiff(currentChar:character,prompt:string){
 
 
     const promptItem = `Chat:\n${prompt}`
+    const imageInstructions = currentChar.visualManagerSettings?.enabled === false
+        ? currentChar.newGenData.instructions
+        : composeImagePromptInstructions(currentChar.newGenData.instructions)
 
     const promptbody:OpenAIChat[] = [
         {
 
             role:'system',
-            content: currentChar.newGenData.instructions
+            content: imageInstructions
         },
         {
             role: 'user',
@@ -53,6 +58,10 @@ export async function stableDiff(currentChar:character,prompt:string){
     }
 
     const r = rq.result.replace(/<Thoughts>[\s\S]*?<\/Thoughts>/g, '').trim()
+    if(/^NO_IMAGE[.!]?$/i.test(r)) {
+        recordVisualImageDecision(currentChar, 'Image generation skipped: the image prompt model selected NO_IMAGE for this response.')
+        return false
+    }
 
 
     const genPrompt = currentChar.newGenData.prompt.replaceAll('{{slot}}', r)
@@ -63,6 +72,14 @@ export async function stableDiff(currentChar:character,prompt:string){
 
 export async function generateAIImage(genPrompt:string, currentChar:character, neg:string, returnSdData:string, options?:ImageGenerationOptions):Promise<string|false>{
     const db = getDatabase()
+    try {
+        genPrompt = options?.visualContext
+            ? await prepareVisualImagePrompt(genPrompt, currentChar, options.visualContext)
+            : await prepareVisualImagePrompt(genPrompt, currentChar)
+    } catch(error) {
+        console.warn('Visual Manager prompt preparation failed; using the original image prompt.', error)
+    }
+    options?.onPromptPrepared?.(genPrompt)
     console.log(db.sdProvider)
     if(db.sdProvider === 'webui'){
 
@@ -488,6 +505,11 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
         const legacy = db.sdProvider === 'comfy' // Legacy Comfy mode
         const {workflow, posNodeID, posInputName, negNodeID, negInputName} = db.comfyConfig
         const baseUrl = new URL(db.comfyUiUrl)
+        const apiToken = db.comfyConfig.apiToken?.trim() ?? ''
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(apiToken ? { 'Authorization': `Bearer ${apiToken}` } : {})
+        }
 
         const createUrl = (pathname: string, params: Record<string, string> = {}) => {
             const url = db.comfyUiUrl.endsWith('/api') ? new URL(`${db.comfyUiUrl}${pathname}`) : new URL(pathname, baseUrl)
@@ -495,12 +517,33 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
             return url.toString()
         }
 
-        const fetchWrapper = async (url: string, options = {}) => {
-            console.log(url)
-            const response = await globalFetch(url, options)
+        const fetchComfy = async (
+            action: string,
+            url: string,
+            method: 'GET' | 'POST',
+            rawResponse = false,
+            body?: { prompt: unknown }
+        ) => {
+            const response = await globalFetch(url, {
+                method,
+                headers,
+                body,
+                rawResponse,
+                plainFetchDeforce: true
+            })
             if (!response.ok) {
-                console.log(JSON.stringify(response.data))
-                throw new Error(JSON.stringify(response.data))
+                let detail = response.data
+                if (detail instanceof Uint8Array) {
+                    detail = new TextDecoder().decode(detail)
+                }
+                const detailText = typeof detail === 'string' ? detail : JSON.stringify(detail)
+                const safeDetail = apiToken ? detailText?.replaceAll(apiToken, '[REDACTED]') : detailText
+                if (response.status === 401) {
+                    throw new Error(`ComfyUI authentication failed during ${action} (HTTP 401). Check the API Token.`)
+                }
+                throw new Error(
+                    `ComfyUI ${action} failed${response.status ? ` (HTTP ${response.status})` : ''}${safeDetail ? `: ${safeDetail}` : ''}`
+                )
             }
             return response.data
         }
@@ -533,21 +576,23 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
                 }
             }
 
-            const { prompt_id: id } = await fetchWrapper(createUrl('/prompt'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: { 'prompt': prompt }
-            })
+            const promptResult = await fetchComfy('prompt submission', createUrl('/prompt'), 'POST', false, { prompt })
+            const id = promptResult?.prompt_id
+            if (typeof id !== 'string' || !id) {
+                throw new Error('ComfyUI prompt submission failed: response did not include a prompt ID.')
+            }
             console.log(`prompt id: ${id}`)
 
             let item
 
             const startTime = Date.now()
             const timeout = db.comfyConfig.timeout * 1000
-            while (!(item = (await (await fetchNative(createUrl('/history'), {
-                headers: { 'Content-Type': 'application/json' },
-                method: 'GET'
-            })).json())[id])) {
+            while (true) {
+                const history = await fetchComfy('history lookup', createUrl('/history'), 'GET')
+                item = history?.[id]
+                if (item) {
+                    break
+                }
                 console.log("Checking /history...")
                 if (Date.now() - startTime >= timeout) {
                     alertError("Error: Image generation took longer than expected.");
@@ -555,17 +600,17 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
                 }
                 await new Promise(r => setTimeout(r, 1000))
             } // Check history until the generation is complete.
-            const genImgInfo = Object.values(item.outputs).flatMap((output: any) => output.images)[0];
+            const genImgInfo = Object.values(item.outputs).flatMap((output: any) => output.images ?? [])[0];
+            if (!genImgInfo) {
+                throw new Error('ComfyUI image download failed: completed history did not contain an image.')
+            }
 
-            const imgResponse = await fetchNative(createUrl('/view', {
+            const image = await fetchComfy('image download', createUrl('/view', {
                 filename: genImgInfo.filename,
                 subfolder: genImgInfo.subfolder,
                 type: genImgInfo.type
-            }), {
-                headers: { 'Content-Type': 'application/json' }, 
-                method: 'GET'
-            })
-            const img64 = Buffer.from(await imgResponse.arrayBuffer()).toString('base64')
+            }), 'GET', true)
+            const img64 = Buffer.from(image).toString('base64')
 
             if(returnSdData === 'inlay'){
                 return `data:image/png;base64,${img64}`
@@ -953,6 +998,8 @@ export type ImageOrientation = 'landscape' | 'portrait'
 
 export interface ImageGenerationOptions {
     orientation?: ImageOrientation
+    onPromptPrepared?:(prompt:string) => void
+    visualContext?:VisualPromptContext
 }
 
 /**

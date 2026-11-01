@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { MobileGUIStack, MobileSideBar, selectedCharID } from "src/ts/stores.svelte";
+    import { MobileGUIStack, MobileSideBar, selectedCharID, VisualManagerOpen } from "src/ts/stores.svelte";
     import Settings from "../Setting/Settings.svelte";
     import RealmMain from "../UI/Realm/RealmMain.svelte";
     import MobileCharacters from "./MobileCharacters.svelte";
@@ -9,6 +9,7 @@
     import { language } from "src/lang";
     import SideChatList from "../SideBars/SideChatList.svelte";
     import DevTool from "../SideBars/DevTool.svelte";
+    import VisualManager from "../SideBars/VisualManager.svelte";
     import { isLite } from "src/ts/lite";
     
     import { DBState } from 'src/ts/stores.svelte';
@@ -26,12 +27,33 @@
     }}>
         {language.character}
     </button>
+    {#if $selectedCharID >= 0 && DBState.db.characters[$selectedCharID] && DBState.db.characters[$selectedCharID].type !== 'group' && DBState.db.characters[$selectedCharID].chaId !== '§playground'}
+        <button
+            class="flex-1 border-r border-r-darkborderc"
+            class:text-textcolor={$VisualManagerOpen}
+            aria-label={$VisualManagerOpen ? 'Close Visual Manager' : 'Open Visual Manager'}
+            aria-expanded={$VisualManagerOpen}
+            aria-controls="visual-manager-panel"
+            aria-pressed={$VisualManagerOpen}
+            onclick={() => VisualManagerOpen.update(open => !open)}
+        >
+            Visuals
+        </button>
+    {/if}
     <button class:text-textcolor={$MobileSideBar === 3} onclick={() => {
         $MobileSideBar = 3
     }}>
         <WrenchIcon size={18} />
     </button>
 </div>
+{/if}
+{#if $VisualManagerOpen && $selectedCharID >= 0 && DBState.db.characters[$selectedCharID] && DBState.db.characters[$selectedCharID].type !== 'group' && DBState.db.characters[$selectedCharID].chaId !== '§playground'}
+    <div class="fixed inset-0 z-50 bg-black/50" role="dialog" aria-modal="true" aria-label="Visual Manager">
+        <button class="absolute inset-0 h-full w-full cursor-default" aria-label="Close Visual Manager" onclick={() => VisualManagerOpen.set(false)}></button>
+        <section id="visual-manager-panel" class="absolute inset-y-0 right-0 z-10 flex w-full max-w-xl flex-col bg-bgcolor p-3 shadow-xl">
+            <VisualManager char={DBState.db.characters[$selectedCharID]} onClose={() => VisualManagerOpen.set(false)} />
+        </section>
+    </div>
 {/if}
 <div class="w-full flex-1 overflow-y-auto bg-bgcolor relative">
     {#if $MobileSideBar > 0}

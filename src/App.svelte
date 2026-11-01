@@ -1,6 +1,7 @@
 <script lang="ts">
-    import { DynamicGUI, settingsOpen, sideBarStore, ShowRealmFrameStore, openPresetList, openPersonaList, MobileGUI, CustomGUISettingMenuStore, loadedStore, alertStore, LoadingStatusState, bookmarkListOpen, popupStore, easyPanelStore, popUpEditorStore, loadoutModalStore, onboardingModalStore, irisStore, customSideBarConfigDialogStore } from './ts/stores.svelte';
+    import { DynamicGUI, settingsOpen, sideBarStore, ShowRealmFrameStore, openPresetList, openPersonaList, MobileGUI, CustomGUISettingMenuStore, loadedStore, alertStore, LoadingStatusState, bookmarkListOpen, popupStore, easyPanelStore, popUpEditorStore, loadoutModalStore, onboardingModalStore, irisStore, customSideBarConfigDialogStore, VisualManagerOpen, selectedCharID } from './ts/stores.svelte';
     import Sidebar from './lib/SideBars/Sidebar.svelte';
+    import VisualManager from './lib/SideBars/VisualManager.svelte';
     import { DBState } from './ts/stores.svelte';
     import ChatScreen from './lib/ChatScreens/ChatScreen.svelte';
     import AlertComp from './lib/Others/AlertComp.svelte';
@@ -245,7 +246,23 @@
 
                 </div>
             {/if}
-            <ChatScreen />
+            <div class="flex h-full w-full min-w-0 flex-1">
+                <ChatScreen />
+                {#if $VisualManagerOpen && $selectedCharID >= 0 && DBState.db.characters[$selectedCharID] && DBState.db.characters[$selectedCharID].type !== 'group' && DBState.db.characters[$selectedCharID].chaId !== '§playground'}
+                    {#if $DynamicGUI}
+                        <div class="fixed inset-0 z-50 flex justify-end bg-black/50" role="dialog" aria-modal="true" aria-label="Visual Manager">
+                            <button class="absolute inset-0 cursor-default" aria-label="Close Visual Manager" onclick={() => VisualManagerOpen.set(false)}></button>
+                            <aside id="visual-manager-panel" class="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-borderc bg-bgcolor p-3 shadow-xl">
+                                <VisualManager char={DBState.db.characters[$selectedCharID]} onClose={() => VisualManagerOpen.set(false)} />
+                            </aside>
+                        </div>
+                    {:else}
+                        <aside id="visual-manager-panel" class="flex h-full w-[min(38vw,36rem)] min-w-[26rem] max-w-[44vw] shrink-0 resize-x flex-col overflow-auto border-l border-borderc bg-bgcolor p-3">
+                            <VisualManager char={DBState.db.characters[$selectedCharID]} onClose={() => VisualManagerOpen.set(false)} />
+                        </aside>
+                    {/if}
+                {/if}
+            </div>
         {/if}
     {/if}
     {#if $alertStore.type !== 'none'}

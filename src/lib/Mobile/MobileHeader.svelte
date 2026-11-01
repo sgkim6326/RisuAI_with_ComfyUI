@@ -3,7 +3,7 @@
     import { language } from "src/lang";
     
     import { DBState } from 'src/ts/stores.svelte';
-    import { MobileGUIStack, MobileSearch, selectedCharID, SettingsMenuIndex, MobileSideBar } from "src/ts/stores.svelte";
+    import { MobileGUIStack, MobileSearch, selectedCharID, SettingsMenuIndex, MobileSideBar, VisualManagerOpen } from "src/ts/stores.svelte";
 
 </script>
 <div class="w-full px-4 h-16 border-b border-b-darkborderc bg-darkbg flex justify-start items-center gap-2">
@@ -22,6 +22,11 @@
         </button>
         <span class="font-bold text-lg w-2/3 truncate">{DBState.db.characters[$selectedCharID].name}</span>
         <div class="flex-1 flex justify-end">
+            {#if DBState.db.characters[$selectedCharID] && DBState.db.characters[$selectedCharID].type !== 'group' && DBState.db.characters[$selectedCharID].chaId !== '§playground'}
+                <button class="mr-3 rounded-md px-2 py-1 text-sm" aria-label={$VisualManagerOpen ? 'Close Visual Manager' : 'Open Visual Manager'} aria-expanded={$VisualManagerOpen} aria-controls="visual-manager-panel" onclick={() => VisualManagerOpen.update(open => !open)}>
+                    Visuals
+                </button>
+            {/if}
             <button onclick={() => {
                 MobileSideBar.set(1)
             }}>

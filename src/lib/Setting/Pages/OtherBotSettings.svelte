@@ -692,6 +692,9 @@
             <span class="text-textcolor mt-2">ComfyUI {language.providerURL}</span>
             <TextInput size="sm" marginBottom placeholder="http://127.0.0.1:8188" bind:value={DBState.db.comfyUiUrl}/>
 
+            <span class="text-textcolor">API Token (Optional)</span>
+            <TextInput size="sm" marginBottom placeholder="..." hideText={DBState.db.hideApiKey} bind:value={DBState.db.comfyConfig.apiToken}/>
+
             <span class="text-textcolor">Workflow <Help key="comfyWorkflow" /></span>
             <TextInput size="sm" marginBottom bind:value={DBState.db.comfyConfig.workflow}/>
 

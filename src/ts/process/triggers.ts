@@ -13,6 +13,7 @@ import { HypaProcesser } from "./memory/hypamemory";
 import { requestChatData } from "./request/request";
 import { generateAIImage } from "./stableDiff";
 import { writeInlayImage } from "./files/inlays";
+import { recordVisualImageGenerated } from "./visualManager";
 import { runScripted } from "./scriptings";
 import { calcString } from "./infunctions";
 
@@ -1078,10 +1079,10 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
         historyend: '',
         promptend: ''
     }
-    const triggers = char.triggerscript.map((v) => {
-        v.lowLevelAccess = CharacterlowLevelAccess
-        return v
-    }).concat(getModuleTriggers())
+    const triggers = char.triggerscript.map<triggerscript>((v) => ({
+        ...v,
+        lowLevelAccess: CharacterlowLevelAccess
+    })).concat(getModuleTriggers())
     const db = getDatabase()
     const defaultVariables = parseKeyValue(char.defaultVariables).concat(parseKeyValue(db.templateDefaultVariables))
     let chat = arg.displayMode ? arg.chat : safeStructuredClone(arg.chat ?? char.chats[char.chatPage])
@@ -1543,7 +1544,10 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
 
                     const effectValue = risuChatParser(effect.value,{chara:char})
                     const negValue = risuChatParser(effect.negValue,{chara:char})
-                    const gen = await generateAIImage(effectValue, char, negValue, 'inlay')
+                    let finalPrompt = effectValue
+                    const gen = await generateAIImage(effectValue, char, negValue, 'inlay', {
+                        onPromptPrepared:prompt => { finalPrompt = prompt }
+                    })
                     if(!gen){
                         setVar(effect.inputVar, 'Error: Image generation failed')
                         break
@@ -1551,6 +1555,7 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                     const imgHTML = new Image()
                     imgHTML.src = gen
                     const inlay = await writeInlayImage(imgHTML)
+                    recordVisualImageGenerated(char, chat, inlay, finalPrompt, chat.message.at(-1)?.chatId)
                     const res = `{{inlay::${inlay}}}`
                     setVar(effect.inputVar, res)
                     break
@@ -1881,7 +1886,10 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                     }
                     let value = effect.valueType === 'value' ? risuChatParser(effect.value,{chara:char}) : getVar(risuChatParser(effect.value,{chara:char}))
                     let negValue = effect.negValueType === 'value' ? risuChatParser(effect.negValue,{chara:char}) : getVar(risuChatParser(effect.negValue,{chara:char}))
-                    let gen = await generateAIImage(value, char, negValue, 'inlay')
+                    let finalPrompt = value
+                    let gen = await generateAIImage(value, char, negValue, 'inlay', {
+                        onPromptPrepared:prompt => { finalPrompt = prompt }
+                    })
                     if(!gen){
                         setVar(risuChatParser(effect.outputVar, {chara:char}), 'null')
                         break
@@ -1889,6 +1897,7 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                     let imgHTML = new Image()
                     imgHTML.src = gen
                     let inlay = await writeInlayImage(imgHTML)
+                    recordVisualImageGenerated(char, chat, inlay, finalPrompt, chat.message.at(-1)?.chatId)
                     let res = `{{inlay::${inlay}}}`
                     setVar(risuChatParser(effect.outputVar, {chara:char}), res)
                     break

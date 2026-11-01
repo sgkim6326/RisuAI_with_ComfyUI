@@ -1,7 +1,7 @@
 <script lang="ts">
     import { language } from "../../lang";
     import { tokenizeAccurate } from "../../ts/tokenizer";
-    import { getCurrentCharacter, saveImage as saveAsset, type character, type groupChat } from "../../ts/storage/database.svelte";
+    import { getCurrentCharacter, invalidateVisualAssetCatalog, saveImage as saveAsset, type character, type groupChat } from "../../ts/storage/database.svelte";
     import { DBState } from 'src/ts/stores.svelte';
     import { untrack } from 'svelte';
     import { CharConfigSubMenu, MobileGUI, ShowRealmFrameStore, selectedCharID, hypaV3ModalOpen } from "../../ts/stores.svelte";
@@ -517,7 +517,7 @@
                                     <td class="font-medium truncate w-1/3"><img src={im} alt="img" class="w-full"></td>                        
                                 {/await}
                                 <td class="font-medium truncate w-1/2">
-                                    <TextInput marginBottom size='lg' bind:value={DBState.db.characters[$selectedCharID].emotionImages[i][0]} />
+                                    <TextInput marginBottom size='lg' bind:value={DBState.db.characters[$selectedCharID].emotionImages[i][0]} oninput={() => invalidateVisualAssetCatalog(DBState.db.characters[$selectedCharID] as character)} />
                                 </td>
                                 <td>
                                     <button class="font-medium cursor-pointer hover:text-green-500" onclick={() => {
@@ -633,7 +633,7 @@
                                             <img src={assetFilePath[i]} class="w-16 h-16 m-1 rounded-md" alt={assets[0]}/>
                                         {/if}
                                     {/if}
-                                    <TextInput size="sm" marginBottom bind:value={DBState.db.characters[$selectedCharID].additionalAssets[i][0]} placeholder="..." />
+                                    <TextInput size="sm" marginBottom bind:value={DBState.db.characters[$selectedCharID].additionalAssets[i][0]} oninput={() => invalidateVisualAssetCatalog(DBState.db.characters[$selectedCharID] as character)} placeholder="..." />
                                 </td>
                                 
                                 <th class="font-medium cursor-pointer w-10">

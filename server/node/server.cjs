@@ -108,6 +108,13 @@ const authenticatedRouteLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many requests. Please retry shortly.' }
 });
+const storageWriteLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many storage writes. Please retry shortly.' }
+});
 const authRouteLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 2000,
@@ -1326,7 +1333,7 @@ app.get('/api/list', authenticatedRouteLimiter, async (req, res, next) => {
     }
 });
 
-app.post('/api/write', authenticatedRouteLimiter, async (req, res) => {
+app.post('/api/write', storageWriteLimiter, async (req, res) => {
     if(!await checkAuth(req, res)){
         return;
     }
